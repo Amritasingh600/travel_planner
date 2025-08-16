@@ -2,6 +2,7 @@
 import os
 import json
 import re
+import math
 from math import ceil
 from urllib.parse import urlencode, quote_plus
 
@@ -17,14 +18,15 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key")
 GEMINI_API_URL = os.environ.get("GEMINI_API_URL")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 
-# Sample fallback response used only when the real API fails
+# Sample fallback response (used only when API fails)
 SAMPLE_GEMINI_RAW = """===JSON_START===
 {
   "destination_name": "Mathura, India",
   "maps_query": "Mathura,India",
   "itinerary": [
     { "day_number": 1, "summary": "Arrival and Janmabhoomi", "activities": ["Visit Shri Krishna Janmabhoomi","Evening aarti"], "approximate_cost": 500 },
-    { "day_number": 2, "summary": "Vrindavan temples", "activities": ["Banke Bihari Temple","Prem Mandir"], "approximate_cost": 700 }
+    { "day_number": 2, "summary": "Vrindavan temples", "activities": ["Banke Bihari Temple","Prem Mandir"], "approximate_cost": 700 },
+    { "day_number": 3, "summary": "Local markets & departure", "activities": ["Local markets","Depart"], "approximate_cost": 300 }
   ],
   "visit_sequence": [
     { "order": 1, "location_name": "Shri Krishna Janmabhoomi", "suggested_time": "Morning", "estimated_duration": "2 hours",
@@ -34,19 +36,22 @@ SAMPLE_GEMINI_RAW = """===JSON_START===
     { "order": 2, "location_name": "Banke Bihari Temple (Vrindavan)", "suggested_time": "Morning", "estimated_duration": "2 hours",
       "note": "Crowded, come early", "latitude": 27.5807, "longitude": 77.7061,
       "nearby_food_recommendations": [{"name":"Local stalls","rating":3.8,"distance_m":100,"price_level":"₹","reason":"Street snacks"}]
+    },
+    { "order": 3, "location_name": "Govardhan Hill", "suggested_time": "Afternoon", "estimated_duration": "3 hours",
+      "note": "Scenic spot", "latitude": 27.4833, "longitude": 77.6750,
+      "nearby_food_recommendations": [{"name":"Hill Cafe","rating":4.0,"distance_m":250,"price_level":"₹₹","reason":"Good view"}]
     }
   ],
   "popular_dinner_recommendations": [{"name":"Brijwasi Sweets","reason":"Local sweets","rating":4.2,"price_level":"₹"}],
-  "popular_stays": [{"name":"Hotel Madhuvan","reason":"Comfortable near temples","rating":4.0,"price_level":"₹₹"}],
+  "popular_stays": [{"name":"Hotel Madhuvan","reason":"Comfortable near temples","rating":4.0,"price_level":"₹₹","address":"Near Janmabhoomi, Mathura"}],
   "travel_instructions": [
     {"from":"Your origin","to":"Mathura Junction","transport":"Train/car","approx_time":"Varies","notes":"From Mathura Junction take a rickshaw to Janmabhoomi (~10-20 min)"}
   ]
 }
 ===JSON_END==="""
 
-# ----------------- Helpers -----------------
+# ---------- Helpers ----------
 def strip_code_fences(text):
-    """Remove wrapping triple-backtick fences if present."""
     if not isinstance(text, str):
         return text
     m = re.search(r"^```(?:json)?\s*(.*)\s*```$", text, re.S | re.I)
@@ -56,8 +61,7 @@ def strip_code_fences(text):
 
 def extract_text_from_api_response(data):
     """
-    The Generative API responses vary in shape. Try several common locations
-    and return the first plausible text blob we find.
+    Try several common model response shapes and return the first plausible text blob.
     """
     if not data:
         return None
@@ -91,7 +95,7 @@ def extract_text_from_api_response(data):
         except Exception:
             continue
 
-    # If none of the above worked, stringify the JSON and try to find an embedded code block there.
+    # fallback: pretty JSON string
     try:
         return json.dumps(data, indent=2)
     except Exception:
@@ -101,8 +105,8 @@ def extract_json_from_text(text):
     """
     Robust JSON extraction:
     - strip fenced code blocks
-    - find marker-wrapped JSON between ===JSON_START=== and ===JSON_END===
-    - otherwise find the first balanced {...} block
+    - look for markers ===JSON_START=== ... ===JSON_END===
+    - otherwise locate first balanced {...} block and parse it
     """
     if not text or not isinstance(text, str):
         return None
@@ -122,11 +126,11 @@ def extract_json_from_text(text):
             except Exception:
                 pass
 
+    # find first balanced {...}
     first = text.find("{")
     if first == -1:
         return None
 
-    # Find first balanced JSON object (handles nested braces)
     stack = []
     end = -1
     for i in range(first, len(text)):
@@ -149,18 +153,16 @@ def extract_json_from_text(text):
                 return json.loads(cleaned)
             except Exception:
                 pass
-
     return None
 
 def normalize_visit_sequence(raw_seq):
     """
-    Ensure visit_sequence is a list of dicts.
-    - Handles strings, lists, and dicts.
+    Ensure visit_sequence is a list of dicts. Handle strings and nested shapes.
     """
     if not raw_seq:
         return []
-
     normalized = []
+
     if isinstance(raw_seq, str):
         try:
             parsed = json.loads(raw_seq)
@@ -202,24 +204,43 @@ def normalize_visit_sequence(raw_seq):
                     if isinstance(it, dict):
                         normalized.append(it)
             else:
-                kv_pairs = {}
+                kv = {}
                 m = re.search(r"order\s*[:=]\s*(\d+)", item, re.I)
                 if m:
-                    kv_pairs["order"] = int(m.group(1))
+                    kv["order"] = int(m.group(1))
                 m2 = re.search(r'location_name\s*[:=]\s*["\']?([^,"\']+)["\']?', item, re.I)
                 if m2:
-                    kv_pairs["location_name"] = m2.group(1).strip()
-                if kv_pairs:
-                    normalized.append(kv_pairs)
+                    kv["location_name"] = m2.group(1).strip()
+                if kv:
+                    normalized.append(kv)
     return normalized
 
-# ---------- Gemini call ----------
+def safe_load_json_like(x):
+    if x is None:
+        return []
+    if isinstance(x, (list, dict)):
+        return x
+    if isinstance(x, str):
+        try:
+            return json.loads(x)
+        except Exception:
+            return extract_json_from_text(x) or []
+    return []
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    phi1 = math.radians(lat1); phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1); dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
+
 def call_gemini(prompt):
+    """
+    Call Generative API and return text. Raises on HTTP errors.
+    """
     if (not GEMINI_API_URL) or (not GEMINI_API_KEY):
         raise RuntimeError("GEMINI_API_URL and GEMINI_API_KEY must be set as environment variables.")
-
-    if "example" in GEMINI_API_URL or "your-gemini-endpoint" in GEMINI_API_URL:
-        raise RuntimeError("GEMINI_API_URL appears to be a placeholder. Set it to the real Gemini endpoint.")
 
     headers = {"Content-Type": "application/json", "X-Goog-Api-Key": GEMINI_API_KEY}
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
@@ -227,10 +248,23 @@ def call_gemini(prompt):
     resp = requests.post(GEMINI_API_URL, headers=headers, json=payload, timeout=60)
     resp.raise_for_status()
     data = resp.json()
-
     text = extract_text_from_api_response(data)
     text = strip_code_fences(text).strip() if isinstance(text, str) else text
     return text
+
+def build_maps_dir_link(origin, destination, waypoints=None):
+    """
+    Build a Google Maps Directions link using api=1. origin/destination can be "lat,lon" or place string.
+    waypoints: list of "lat,lon" or place strings (interior waypoints).
+    """
+    if not destination:
+        return None
+    params = {"api": 1, "origin": origin or "", "destination": destination}
+    if waypoints:
+        # Google accepts pipe-separated list
+        params["waypoints"] = "|".join(waypoints)
+    params["travelmode"] = "driving"
+    return "https://www.google.com/maps/dir/?" + urlencode(params)
 
 # ---------- Flask routes ----------
 @app.route("/", methods=["GET"])
@@ -249,7 +283,7 @@ def plan():
         flash("Please provide a destination.")
         return redirect(url_for("index"))
 
-    # Strict prompt with example (keeps model output structured)
+    # Strict prompt example to encourage consistent JSON
     example = {
         "destination_name": "Place, Country",
         "maps_query": "Place,Country",
@@ -286,7 +320,6 @@ Requirements:
 - Return exactly one JSON object between the markers. Do not include any other text.
 - Ensure visit_sequence is an ordered array with numeric 'order' fields.
 - For each visit_sequence item include at least one nearby_food_recommendation if possible.
-- Use plain JSON (no markdown, no code fences). If you must include fences, they will be stripped.
 """
 
     try:
@@ -295,34 +328,74 @@ Requirements:
         flash(f"Gemini API error: {e}. Showing sample response.")
         gemini_raw = SAMPLE_GEMINI_RAW
 
-    # Parse JSON out of model output
     parsed = extract_json_from_text(gemini_raw) or {}
 
-    # Structured pieces
-    itinerary = parsed.get("itinerary", []) or []
-    raw_visit_sequence = parsed.get("visit_sequence", []) or []
-    popular_foods = parsed.get("popular_dinner_recommendations", []) or []
-    popular_stays = parsed.get("popular_stays", []) or []
-    travel_instructions = parsed.get("travel_instructions", []) or []
-
-    # Normalize visit_sequence robustly
+    # Extract core pieces
+    itinerary = parsed.get("itinerary") or []
+    raw_visit_sequence = parsed.get("visit_sequence") or []
     visit_sequence = normalize_visit_sequence(raw_visit_sequence)
 
-    # If visit_sequence empty but itinerary present, build from itinerary
+    # Normalize popular dinner recommendations
+    popular_dinners = parsed.get("popular_dinner_recommendations") \
+                      or parsed.get("popular_dinners") \
+                      or parsed.get("dining") \
+                      or parsed.get("dinner_recommendations") \
+                      or parsed.get("popular_foods") \
+                      or []
+    popular_dinners = safe_load_json_like(popular_dinners)
+    if isinstance(popular_dinners, dict):
+        popular_dinners = [popular_dinners]
+    if not isinstance(popular_dinners, list):
+        popular_dinners = []
+
+    # Normalize popular stays (accept different key names)
+    popular_stays = parsed.get("popular_stays") \
+                    or parsed.get("stays") \
+                    or parsed.get("accommodations") \
+                    or parsed.get("hotels") \
+                    or parsed.get("recommended_stays") \
+                    or []
+    popular_stays = safe_load_json_like(popular_stays)
+    if isinstance(popular_stays, dict):
+        popular_stays = [popular_stays]
+    if not isinstance(popular_stays, list):
+        popular_stays = []
+
+    # Normalize travel instructions (handle many shapes)
+    travel_raw = parsed.get("travel_instructions") \
+                 or parsed.get("travel") \
+                 or parsed.get("directions") \
+                 or parsed.get("route") \
+                 or parsed.get("travel_steps") \
+                 or []
+    travel_instructions = []
+    if isinstance(travel_raw, str):
+        try:
+            travel_instructions = json.loads(travel_raw)
+        except Exception:
+            legs = [line.strip() for line in re.split(r"[\n\r]+", travel_raw) if line.strip()]
+            travel_instructions = [{"from": "", "to": "", "transport": "", "approx_time": "", "notes": leg} for leg in legs]
+    elif isinstance(travel_raw, dict):
+        travel_instructions = [travel_raw]
+    elif isinstance(travel_raw, list):
+        travel_instructions = travel_raw
+    else:
+        travel_instructions = []
+
+    # If itinerary missing, build a light one from visit_sequence
     try:
         days_n = int(days) if days and str(days).isdigit() else len(itinerary) or 1
     except Exception:
         days_n = len(itinerary) or 1
 
     if not visit_sequence and itinerary:
-        # build a simple visit_sequence from itinerary activities
+        visit_sequence = []
         idx = 1
-        built = []
         for day in itinerary:
             activities = day.get("activities") or []
             for act in activities:
                 name = act if isinstance(act, str) else act.get("name", f"Place {idx}")
-                built.append({
+                visit_sequence.append({
                     "order": idx,
                     "location_name": name,
                     "suggested_time": "",
@@ -330,111 +403,74 @@ Requirements:
                     "note": "",
                     "latitude": None,
                     "longitude": None,
-                    "nearby_food_recommendations": (popular_foods or [])[:2]
+                    "nearby_food_recommendations": (popular_dinners or [])[:2]
                 })
                 idx += 1
-        visit_sequence = built
 
-    # Ensure itinerary exists for the requested days
-    if not itinerary and visit_sequence:
-        # distribute visits across days
-        buckets = [[] for _ in range(days_n)]
-        for i, v in enumerate(visit_sequence):
-            day_index = min(days_n - 1, i // max(1, ceil(len(visit_sequence) / days_n)))
-            name = v.get("location_name") if isinstance(v, dict) else f"Place {i+1}"
-            buckets[day_index].append(name)
-        itinerary = []
-        for i in range(days_n):
-            itinerary.append({
-                "day_number": i + 1,
-                "summary": f"Visit {len(buckets[i])} site(s)" if buckets[i] else "Free / explore",
-                "activities": buckets[i] or ["Free time / local exploration"],
-                "approximate_cost": None
-            })
-
-    # Final sort
+    # Final sort of visit_sequence
     try:
         visit_sequence = sorted(visit_sequence, key=lambda x: int(x.get("order", 0)))
     except Exception:
         pass
 
-    # Distribute into day buckets for meal suggestions
-    visits_per_day = [[] for _ in range(days_n)]
-    for idx, v in enumerate(visit_sequence):
-        try:
-            day_index = min(days_n - 1, idx // max(1, ceil(len(visit_sequence) / days_n)))
-        except Exception:
-            day_index = 0
-        visits_per_day[day_index].append(v)
-
-    # Build daily meal picks
-    daily_meals = []
-    for i in range(days_n):
-        picks = []
-        for v in visits_per_day[i]:
-            if not isinstance(v, dict):
-                continue
-            nearby = v.get("nearby_food_recommendations") or []
-            if isinstance(nearby, str):
-                try:
-                    nearby = json.loads(nearby)
-                except Exception:
-                    nearby = extract_json_from_text(nearby) or []
-            if isinstance(nearby, dict):
-                nearby = [nearby]
-            if not isinstance(nearby, list) or not nearby:
-                nearby = (popular_foods or [])[:2]
-            for f in nearby[:3]:
-                if not isinstance(f, dict):
-                    continue
-                picks.append({
-                    "visit_location": v.get("location_name"),
-                    "name": f.get("name"),
-                    "rating": f.get("rating"),
-                    "distance_m": f.get("distance_m"),
-                    "price_level": f.get("price_level"),
-                    "reason": f.get("reason"),
-                })
-        daily_meals.append({"day_number": i + 1, "meals": picks})
-
-    # ---------- Improved node layout: grid / wrapping to reduce congestion ----------
-    # We'll lay out nodes in a grid with a configurable max columns so the roadmap doesn't get a single cramped line.
+    # Build node_positions grid (fallback if coords missing)
     n_nodes = max(1, len(visit_sequence))
-    max_cols = int(os.environ.get("TREASUREMAP_MAX_COLS", 4))  # default 4 columns, configurable via env
+    max_cols = int(os.environ.get("TREASUREMAP_MAX_COLS", 6))
     cols = min(n_nodes, max_cols)
     rows = ceil(n_nodes / cols)
-    svg_width = 940
+    svg_width = 1400
     row_height = 160
-    svg_height = max(220, rows * row_height + 40)
-    margin_x = 60
-    margin_top = 20
+    svg_height = max(260, rows * row_height + 80)
+    margin_x = 80
+    margin_top = 40
     usable_width = svg_width - margin_x * 2
     col_step = usable_width // max(1, cols - 1) if cols > 1 else 0
 
     node_positions = []
+    location_to_coords = {}
     for idx, v in enumerate(visit_sequence):
         if not isinstance(v, dict):
             continue
         col = idx % cols
         row = idx // cols
         x = margin_x + (col * col_step) if cols > 1 else svg_width // 2
-        y = margin_top + (row * row_height) + (row * 10)
+        y = margin_top + (row * row_height) + (row * 6)
+        lat = v.get("latitude")
+        lon = v.get("longitude")
         node = {
-            "order": v.get("order", idx + 1),
+            "order": int(v.get("order", idx + 1)),
             "location_name": v.get("location_name") or v.get("name") or f"Place {idx+1}",
             "suggested_time": v.get("suggested_time", ""),
             "estimated_duration": v.get("estimated_duration", ""),
             "note": v.get("note", ""),
-            "latitude": v.get("latitude"),
-            "longitude": v.get("longitude"),
+            "latitude": lat,
+            "longitude": lon,
             "nearby_food_recommendations": v.get("nearby_food_recommendations") or [],
             "x": int(x),
             "y": int(y)
         }
         node_positions.append(node)
+        # normalize and store mapping for easy lookups later
+        if lat is not None and lon is not None:
+            try:
+                location_to_coords[node["location_name"]] = f"{float(lat)},{float(lon)}"
+            except Exception:
+                pass
 
-    # Build Google Maps links
+    # Build coords_list for Leaflet mapping
+    coords_list = []
+    for n in node_positions:
+        lat = n.get("latitude"); lon = n.get("longitude")
+        try:
+            if lat is not None and lon is not None:
+                coords_list.append([float(lat), float(lon)])
+        except Exception:
+            continue
+
+    # Build Google Maps links for convenience
     destination_for_search = (parsed.get("destination_name") or parsed.get("maps_query") or destination).strip()
+    destination_for_dirs = parsed.get("maps_query") or parsed.get("destination_name") or destination
+
     def build_maps_query(q):
         if not q:
             return ""
@@ -442,27 +478,107 @@ Requirements:
         if re.match(r"^\s*-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?\s*$", q):
             return q.replace(" ", "")
         return quote_plus(q)
-    destination_for_dirs = parsed.get("maps_query") or parsed.get("destination_name") or destination
-    maps_link = None
+
     maps_search_link = None
     maps_iframe_src = None
+    maps_link = None
+    maps_directions_link = None
+
     if destination_for_dirs:
         params = {"api": 1, "destination": build_maps_query(destination_for_dirs)}
         if origin:
             params["origin"] = origin
         params["travelmode"] = "driving"
         maps_link = "https://www.google.com/maps/dir/?" + urlencode(params)
+
     if destination_for_search:
         maps_search_link = "https://www.google.com/maps/search/?api=1&query=" + build_maps_query(destination_for_search)
         maps_iframe_src = maps_search_link
 
-    # Travel instructions normalization (string -> list)
-    if isinstance(travel_instructions, str):
-        legs = [line.strip() for line in re.split(r"\n+", travel_instructions) if line.strip()]
-        travel_instructions = [{"from": "", "to": "", "transport": "", "approx_time": "", "notes": leg} for leg in legs]
+    coords = []
+    for n in node_positions:
+        lat = n.get("latitude"); lon = n.get("longitude")
+        if lat is not None and lon is not None:
+            coords.append(f"{lat},{lon}")
+    if coords:
+        if origin:
+            origin_param = origin
+            destination_param = coords[-1]
+            waypoints = coords[:-1]
+        else:
+            origin_param = coords[0]
+            destination_param = coords[-1]
+            waypoints = coords[1:-1]
+        waypoints_str = "|".join(waypoints) if waypoints else ""
+        params = {"api": 1, "origin": origin_param, "destination": destination_param, "travelmode": "driving"}
+        if waypoints_str:
+            params["waypoints"] = waypoints_str
+        maps_directions_link = "https://www.google.com/maps/dir/?" + urlencode(params)
+
+    # --- Enrich travel_instructions with map links (restore the previous "good" travel instructions behaviour)
+    enriched_travel = []
+    # If the model provided detailed legs, try to enrich them
+    for leg in travel_instructions:
+        leg_map = None
+        from_name = leg.get("from") if isinstance(leg, dict) else ""
+        to_name = leg.get("to") if isinstance(leg, dict) else ""
+        # attempt to find coordinates for from/to by name
+        from_coords = location_to_coords.get(from_name)
+        to_coords = location_to_coords.get(to_name)
+        if from_coords and to_coords:
+            leg_map = build_maps_dir_link(from_coords, to_coords)
+        elif from_coords and to_name:
+            leg_map = build_maps_dir_link(from_coords, to_name)
+        elif to_coords and from_name:
+            leg_map = build_maps_dir_link(from_name, to_coords)
+        else:
+            # fallback: if overall maps_directions_link exists, use it
+            leg_map = maps_directions_link
+        enriched = dict(leg if isinstance(leg, dict) else {"notes": str(leg)})
+        enriched["map_link"] = leg_map
+        enriched_travel.append(enriched)
+
+    # If model didn't provide travel instructions, synthesize and include per-leg map links
+    if not enriched_travel:
+        synthesized = []
+        for i in range(len(node_positions) - 1):
+            a = node_positions[i]; b = node_positions[i+1]
+            from_name = a.get("location_name")
+            to_name = b.get("location_name")
+            approx_time = ""
+            if a.get("latitude") is not None and a.get("longitude") is not None and b.get("latitude") is not None and b.get("longitude") is not None:
+                try:
+                    lat1, lon1 = float(a["latitude"]), float(a["longitude"])
+                    lat2, lon2 = float(b["latitude"]), float(b["longitude"])
+                    dist_km = haversine_km(lat1, lon1, lat2, lon2)
+                    mins = max(5, int((dist_km / 30.0) * 60))  # ~30 km/h
+                    approx_time = f"{mins} min"
+                except Exception:
+                    approx_time = ""
+            origin_param = f"{a['latitude']},{a['longitude']}" if a.get("latitude") is not None and a.get("longitude") is not None else from_name
+            dest_param = f"{b['latitude']},{b['longitude']}" if b.get("latitude") is not None and b.get("longitude") is not None else to_name
+            map_link = build_maps_dir_link(origin_param, dest_param)
+            synthesized.append({
+                "from": from_name,
+                "to": to_name,
+                "transport": "Taxi/Auto",
+                "approx_time": approx_time,
+                "notes": "",
+                "map_link": map_link
+            })
+        enriched_travel = synthesized
+
+    # Ensure enriched_travel is a list of dicts
+    final_travel_instructions = []
+    for leg in enriched_travel:
+        if isinstance(leg, dict):
+            final_travel_instructions.append(leg)
+        else:
+            final_travel_instructions.append({"from":"", "to":"", "transport":"", "approx_time":"", "notes": str(leg), "map_link": maps_directions_link})
 
     show_debug = (os.environ.get("FLASK_ENV", "").lower() == "development") and (request.args.get("debug") == "1")
 
+    # Render template with normalized data (travel instructions restored & enriched)
     return render_template(
         "result.html",
         destination=destination,
@@ -474,11 +590,14 @@ Requirements:
         parsed=parsed,
         itinerary=itinerary,
         visit_nodes=node_positions,
-        daily_meals=daily_meals,
+        coords_list=coords_list,
         maps_link=maps_link,
         maps_search_link=maps_search_link,
         maps_iframe_src=maps_iframe_src,
-        travel_instructions=travel_instructions,
+        maps_directions_link=maps_directions_link,
+        travel_instructions=final_travel_instructions,
+        popular_dinners=popular_dinners,
+        popular_stays=popular_stays,
         show_debug=show_debug,
         svg_width=svg_width,
         svg_height=svg_height,

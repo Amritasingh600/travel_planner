@@ -1,20 +1,25 @@
 {% extends "base.html" %}
 {% block head %}
-<style>
-  .svg-map { width:100%; max-width:940px; background: linear-gradient(180deg,#fffaf0,#fff6ea); border-radius:12px; padding:8px; box-shadow: inset 0 -6px 20px rgba(0,0,0,0.02); overflow:auto; }
-  .node-label { font-size:0.92rem; font-weight:700; fill:#0f172a; }
-  .node-sub { font-size:0.75rem; fill:#475569; }
-  .food-list { margin:0; padding-left:1.05rem; color:#0f172a; }
-  .card { padding:.75rem; background:white; border-radius:8px; border:1px solid #eef2f7; margin-bottom:.6rem; }
-  .rating { color:#b45309; font-weight:700; }
-  .map-controls { display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; }
-  .map-controls button { background:#7c3aed; color:white; border:0; padding:.45rem .6rem; border-radius:6px; cursor:pointer; font-weight:600; }
-  .map-wrapper { overflow-x:auto; padding-bottom:8px; }
-  .node-card-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:12px; margin-top:12px; }
-  .node-card { padding:12px; border-radius:10px; background:linear-gradient(180deg,#fff,#fbfafc); border:1px solid #eef2f7; }
-  .small-muted { font-size:0.9rem; color:#6b7280; }
-  .svg-node-rect { filter: drop-shadow(0 2px 6px rgba(18,38,63,0.04)); }
-</style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <style>
+    .map-full { width:100%; height:520px; border-radius:12px; overflow:hidden; box-shadow: 0 18px 40px rgba(12,20,35,0.06); }
+    .map-controls { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+    .btn { background:#111827; color:#fff; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700; }
+    .btn.ghost { background:transparent; color:#111827; border:1px solid rgba(17,24,39,0.06); }
+    .card-row { max-width:1400px; margin:18px auto 0; display:flex; gap:20px; justify-content:space-between; padding:0 18px; box-sizing:border-box; flex-wrap:wrap; }
+    .milestone-card { background:#fff; border-radius:12px; padding:16px; flex:1 1 220px; box-shadow: 0 12px 30px rgba(12,20,35,0.06); display:flex; gap:12px; align-items:center; cursor:pointer; }
+    .badge { width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff; }
+    .card-body { flex:1; }
+    .card-title { font-weight:800; margin:0 0 6px 0; color:#0f172a; }
+    .card-sub { margin:0; color:#6b7280; font-size:0.95rem; }
+    .node-card-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap:14px; margin-top:18px; }
+    .node-card { padding:14px; border-radius:12px; background:linear-gradient(180deg,#ffffff,#fbfbfe); border:1px solid #eef2f7; box-shadow: 0 8px 30px rgba(12,20,35,0.04); }
+    .small-muted { color:#6b7280; font-size:0.92rem; }
+    .food-list { margin:0; padding-left:1.05rem; color:#0f172a; }
+    .travel-leg { margin-bottom:10px; padding:12px; border-radius:8px; background:#fff; border:1px solid #eef2f7; box-shadow: 0 6px 18px rgba(12,20,35,0.03); }
+    .travel-leg a { text-decoration:none; color:#0ea5a4; font-weight:700; }
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -22,151 +27,107 @@
   <p class="small"><strong>Preferences:</strong> {{ preferences or '—' }} &nbsp; | &nbsp; <strong>Days:</strong> {{ days or '—' }} &nbsp; | &nbsp; <strong>Budget:</strong> {{ budget or '—' }}</p>
 
   <div class="section">
-    <h3>Recommended Visit Roadmap</h3>
-    <p class="treasure-note">Follow this "treasure map" order to make the most of your visit. Click nodes to open directions. Use zoom controls if the map looks dense.</p>
+    <h3>Map / Interactive Route</h3>
+    <p class="small-muted">If coordinates are available for the stops, an interactive map with markers and a plotted route will appear. Click a stop card to focus it or click a pin to open directions.</p>
 
-    {% if visit_nodes %}
-      <div class="map-controls">
-        <div class="small-muted">Map view:</div>
-        <button id="zoomIn">Zoom +</button>
-        <button id="zoomOut">Zoom −</button>
-        <div style="flex:1"></div>
-        <div class="small-muted">Columns: {{ cols }}, Rows: {{ rows }}</div>
-      </div>
+    <div class="map-controls" style="margin-bottom:12px;">
+      <button class="btn" id="fitBtn">Fit</button>
+      <button class="btn" id="zoomIn">Zoom +</button>
+      <button class="btn" id="zoomOut">Zoom −</button>
+      <button class="btn ghost" id="resetBtn">Reset</button>
+      <div style="flex:1"></div>
+      {% if maps_directions_link %}
+        <a class="btn" href="{{ maps_directions_link }}" target="_blank" rel="noopener">Open full directions in Google Maps</a>
+      {% elif maps_search_link %}
+        <a class="btn" href="{{ maps_search_link }}" target="_blank" rel="noopener">Open place in Google Maps</a>
+      {% endif %}
+    </div>
 
-      <div class="svg-map map-wrapper" id="mapWrap">
-        <svg id="treasureSvg" viewBox="0 0 {{ svg_width }} {{ svg_height }}" preserveAspectRatio="xMinYMin meet" width="{{ svg_width }}" height="{{ svg_height }}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"></path>
-            </marker>
-            <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.08"/>
-            </filter>
-          </defs>
-
-          <g id="mapGroup" transform="scale(1)">
-            {# Draw connecting arrows between nodes in grid order #}
-            {% for i in range(visit_nodes|length) %}
-              {% if i < visit_nodes|length - 1 %}
-                {% set a = visit_nodes[i] %}
-                {% set b = visit_nodes[i+1] %}
-                <line x1="{{ a.x }}" y1="{{ a.y }}" x2="{{ b.x - 24 if b.x > a.x else b.x + 24 }}" y2="{{ b.y }}" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)" opacity="0.9"/>
-              {% endif %}
+    {% if coords_list and coords_list|length >= 2 %}
+      <div id="leafletMap" class="map-full"></div>
+    {% else %}
+      <div class="small-muted">Not enough geographic coordinates available to show a map. Showing the visual roadmap instead.</div>
+      <!-- Fallback SVG brief representation -->
+      <div style="margin-top:12px;">
+        <svg class="road-svg" viewBox="0 0 {{ svg_width }} {{ svg_height }}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" style="width:100%;">
+          {% set pts = visit_nodes %}
+          {% if pts and pts|length > 0 %}
+            {% set p0 = pts[0] %}
+            {% set path_d = "M %s %s" % (p0.x, p0.y) %}
+            {% for i in range(1, pts|length) %}
+              {% set a = pts[i-1] %}
+              {% set b = pts[i] %}
+              {% set cp1x = (a.x*0.6 + b.x*0.4) | round(2) %}
+              {% set cp1y = (a.y*0.6 + b.y*0.4) | round(2) %}
+              {% set cp2x = (a.x*0.4 + b.x*0.6) | round(2) %}
+              {% set cp2y = (a.y*0.4 + b.y*0.6) | round(2) %}
+              {% set path_d = path_d + " C %s %s %s %s %s %s" % (cp1x, cp1y, cp2x, cp2y, b.x, b.y) %}
             {% endfor %}
-
-            {% for node in visit_nodes %}
-              <g class="svg-node" data-order="{{ node.order }}" data-lat="{{ node.latitude }}" data-lon="{{ node.longitude }}" transform="translate({{ node.x }}, {{ node.y }})" style="cursor:pointer;">
-                <circle r="20" fill="#fff" stroke="#7c3aed" stroke-width="3" />
-                <text x="0" y="6" text-anchor="middle" font-size="13" fill="#7c3aed" font-weight="700">{{ node.order }}</text>
-
-                <g transform="translate(-110, 34)">
-                  <rect width="220" height="72" rx="8" class="svg-node-rect" fill="#fff" stroke="#e6e9f8"/>
-                  <text x="110" y="22" text-anchor="middle" class="node-label">{{ node.location_name }}</text>
-                  <text x="110" y="42" text-anchor="middle" class="node-sub">{{ node.suggested_time }} • {{ node.estimated_duration }}</text>
-                </g>
-              </g>
-            {% endfor %}
-          </g>
+            <path d="{{ path_d }}" stroke="#ffffff" stroke-width="28" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="{{ path_d }}" stroke="#111827" stroke-width="20" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="{{ path_d }}" stroke="#ffffff" stroke-opacity="0.25" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="18 12" />
+          {% endif %}
+          {% for node in visit_nodes %}
+            <g transform="translate({{ node.x }}, {{ node.y - 28 }})">
+              <circle cx="0" cy="0" r="18" fill="#3b82f6" stroke="#fff" stroke-width="4"/>
+              <text x="0" y="6" text-anchor="middle" font-size="12" fill="#fff" font-weight="700">{{ node.order }}</text>
+            </g>
+          {% endfor %}
         </svg>
       </div>
-
-      <div class="node-card-grid">
-        {% for node in visit_nodes %}
-          <div class="node-card card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-              <div>
-                <strong>{{ node.order }}. {{ node.location_name }}</strong>
-                <div class="small-muted">{{ node.suggested_time }} • {{ node.estimated_duration }}</div>
-                <div style="margin-top:6px;" class="small-muted">{{ node.note }}</div>
-              </div>
-              <div style="text-align:right;">
-                {% if node.latitude and node.longitude %}
-                  <div class="small-muted">Lat: {{ node.latitude }}, Lon: {{ node.longitude }}</div>
-                {% endif %}
-                {% if maps_link %}
-                  <div style="margin-top:.35rem;"><a href="{{ maps_link }}&waypoints={{node.latitude}},{{node.longitude}}" target="_blank">Directions</a></div>
-                {% endif %}
-              </div>
-            </div>
-
-            <div style="margin-top:10px;">
-              <strong>Nearby food picks</strong>
-              {% if node.nearby_food_recommendations %}
-                <ul class="food-list">
-                  {% for f in node.nearby_food_recommendations %}
-                    <li>
-                      <strong>{{ f.name }}</strong>
-                      {% if f.rating %}<span class="rating"> — {{ f.rating }}/5</span>{% endif %}
-                      {% if f.price_level %} <span class="small-muted">({{ f.price_level }})</span>{% endif %}
-                      {% if f.distance_m %} <span class="small-muted"> · {{ f.distance_m }}m</span>{% endif %}
-                      <div class="small-muted">{{ f.reason }}</div>
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                <div class="small-muted">No specific nearby food recommendations available for this stop.</div>
-              {% endif %}
-            </div>
-          </div>
-        {% endfor %}
-      </div>
-
-    {% else %}
-      <p>No visit roadmap available.</p>
     {% endif %}
   </div>
 
-  <div class="section">
-    <h3>Daily Itinerary (summary)</h3>
-    {% if itinerary %}
-      {% for day in itinerary %}
-        <div class="card">
-          <strong>Day {{ day.day_number }} — {{ day.summary }}</strong>
-          <ul style="margin-top:.5rem;">
-            {% for a in day.activities %}
-              <li>{{ a }}</li>
-            {% endfor %}
-          </ul>
-          {% if day.approximate_cost %}<div class="small-muted">Approx cost: {{ day.approximate_cost }}</div>{% endif %}
+  <div class="card-row" style="margin-top:18px;">
+    {% for node in visit_nodes %}
+      {% set idx = loop.index0 %}
+      {% set color = '#3b82f6' %}
+      {% if idx % 4 == 0 %} {% set color = '#ef4444' %} {% elif idx %4 == 1 %} {% set color = '#f59e0b' %} {% elif idx %4 == 2 %} {% set color = '#10b981' %} {% endif %}
+      <div class="milestone-card" data-index="{{ idx }}">
+        <div class="badge" style="background:{{ color }};">{{ node.order }}</div>
+        <div class="card-body">
+          <div class="card-title">{{ node.location_name }}</div>
+          <div class="card-sub">{{ node.suggested_time }} • {{ node.estimated_duration }}</div>
+          {% if node.note %}<div class="small-muted" style="margin-top:8px;">{{ node.note }}</div>{% endif %}
         </div>
-      {% endfor %}
-    {% else %}
-      <p>No itinerary provided.</p>
-    {% endif %}
+      </div>
+    {% endfor %}
   </div>
 
-  <div class="section">
+  <div class="section" style="margin-top:18px;">
     <h3>Dining & Stays (top picks)</h3>
-    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-      <div style="flex:1; min-width:280px;">
+    <div class="row" style="gap:18px;">
+      <div class="col" style="min-width:320px;">
         <h4>Popular dinner recommendations</h4>
-        {% if parsed.popular_dinner_recommendations %}
+        {% if popular_dinners %}
           <ul class="food-list">
-          {% for d in parsed.popular_dinner_recommendations %}
-            <li><strong>{{ d.name }}</strong>
-              {% if d.rating %}<span class="rating"> — {{ d.rating }}/5</span>{% endif %}
-              {% if d.price_level %} <span class="small-muted">({{ d.price_level }})</span>{% endif %}
-              <div class="small-muted">{{ d.reason }}</div>
-            </li>
-          {% endfor %}
+            {% for d in popular_dinners %}
+              <li style="margin-bottom:8px;">
+                <strong>{{ d.name or d.title or 'Unknown' }}</strong>
+                {% if d.rating %}<span class="small-muted"> — {{ d.rating }}/5</span>{% endif %}
+                {% if d.price_level %}<span class="small-muted"> ({{ d.price_level }})</span>{% endif %}
+                {% if d.reason %}<div class="small-muted">{{ d.reason }}</div>{% endif %}
+              </li>
+            {% endfor %}
           </ul>
         {% else %}
           <div class="small-muted">No dinner picks provided.</div>
         {% endif %}
       </div>
 
-      <div style="flex:1; min-width:280px;">
+      <div class="col" style="min-width:320px;">
         <h4>Popular stays</h4>
-        {% if parsed.popular_stays %}
+        {% if popular_stays %}
           <ul class="food-list">
-          {% for s in parsed.popular_stays %}
-            <li><strong>{{ s.name }}</strong>
-              {% if s.rating %}<span class="rating"> — {{ s.rating }}/5</span>{% endif %}
-              {% if s.price_level %} <span class="small-muted">({{ s.price_level }})</span>{% endif %}
-              <div class="small-muted">{{ s.reason }}</div>
-            </li>
-          {% endfor %}
+            {% for s in popular_stays %}
+              <li style="margin-bottom:8px;">
+                <strong>{{ s.name or s.title or s.hotel_name or 'Unknown' }}</strong>
+                {% if s.rating %}<span class="small-muted"> — {{ s.rating }}/5</span>{% endif %}
+                {% if s.price_level %}<span class="small-muted"> ({{ s.price_level }})</span>{% endif %}
+                {% if s.reason %}<div class="small-muted">{{ s.reason }}</div>{% endif %}
+                {% if s.address and not s.reason %}<div class="small-muted">{{ s.address }}</div>{% endif %}
+              </li>
+            {% endfor %}
           </ul>
         {% else %}
           <div class="small-muted">No stays provided.</div>
@@ -175,38 +136,78 @@
     </div>
   </div>
 
-  <div class="section">
+  <div class="section" style="margin-top:18px;">
     <h3>Travel Instructions (step-by-step)</h3>
     {% if travel_instructions %}
-      <ol>
+      <div>
         {% for leg in travel_instructions %}
-          <li class="leg">
-            <strong>{{ leg.from or '' }} → {{ leg.to or '' }}</strong>
-            {% if leg.transport %} <div class="small-muted">Transport: {{ leg.transport }}</div> {% endif %}
-            {% if leg.approx_time %} <div class="small-muted">Approx time: {{ leg.approx_time }}</div> {% endif %}
-            {% if leg.notes %} <div class="small-muted">Notes: {{ leg.notes }}</div> {% endif %}
-          </li>
+          <div class="travel-leg">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <strong>{{ leg.from or '' }} → {{ leg.to or '' }}</strong>
+                {% if leg.transport %} <div class="small-muted">Transport: {{ leg.transport }}</div> {% endif %}
+                {% if leg.approx_time %} <div class="small-muted">Approx time: {{ leg.approx_time }}</div> {% endif %}
+              </div>
+              <div>
+                {% if leg.map_link %}
+                  <a href="{{ leg.map_link }}" target="_blank" rel="noopener">Open directions</a>
+                {% elif maps_directions_link %}
+                  <a href="{{ maps_directions_link }}" target="_blank" rel="noopener">Open directions</a>
+                {% endif %}
+              </div>
+            </div>
+            {% if leg.notes %}<div class="small-muted" style="margin-top:8px;">{{ leg.notes }}</div>{% endif %}
+          </div>
         {% endfor %}
-      </ol>
+      </div>
     {% else %}
       <p class="small-muted">No structured travel instructions provided.</p>
     {% endif %}
   </div>
 
-  <div class="section map-actions">
-    <h3>Map / Directions</h3>
-    {% if maps_search_link %}
-      <p class="small-muted">Open the place (shows name) or open turn-by-turn directions:</p>
-      <div class="action-links">
-        <a href="{{ maps_search_link }}" target="_blank" rel="noopener">Open place in Google Maps</a>
-        {% if maps_link %}<a href="{{ maps_link }}" target="_blank" rel="noopener">Open directions in Google Maps</a>{% endif %}
-      </div>
-      <div style="margin-top:1rem;">
-        <iframe src="{{ maps_iframe_src }}" allowfullscreen loading="lazy" style="width:100%; height:380px; border:0; border-radius:8px;"></iframe>
-      </div>
-    {% else %}
-      <p class="small-muted">No map link available.</p>
-    {% endif %}
+  <div class="section" style="margin-top:18px;">
+    <h3>Stops & Nearby food picks</h3>
+    <div class="node-card-grid">
+      {% for node in visit_nodes %}
+        <div class="node-card card">
+          <div style="display:flex; justify-content:space-between;">
+            <div>
+              <strong>{{ node.order }}. {{ node.location_name }}</strong>
+              <div class="small-muted" style="margin-top:6px;">{{ node.suggested_time }} • {{ node.estimated_duration }}</div>
+            </div>
+            <div style="text-align:right;">
+              {% if node.latitude and node.longitude %}
+                <div class="small-muted">Lat: {{ node.latitude }}, Lon: {{ node.longitude }}</div>
+              {% endif %}
+              {% if maps_directions_link %}
+                <div style="margin-top:.35rem;"><a href="{{ maps_directions_link }}&waypoints={{ node.latitude }},{{ node.longitude }}" target="_blank">Open directions</a></div>
+              {% elif maps_link %}
+                <div style="margin-top:.35rem;"><a href="{{ maps_link }}&waypoints={{ node.latitude }},{{ node.longitude }}" target="_blank">Open directions</a></div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div style="margin-top:12px;">
+            <strong>Nearby food picks</strong>
+            {% if node.nearby_food_recommendations %}
+              <ul class="food-list">
+                {% for f in node.nearby_food_recommendations %}
+                  <li style="margin-bottom:8px;">
+                    <strong>{{ f.name }}</strong>
+                    {% if f.rating %}<span class="small-muted"> — {{ f.rating }}/5</span>{% endif %}
+                    {% if f.price_level %}<span class="small-muted"> ({{ f.price_level }})</span>{% endif %}
+                    {% if f.distance_m %}<span class="small-muted"> · {{ f.distance_m }}m</span>{% endif %}
+                    {% if f.reason %}<div class="small-muted">{{ f.reason }}</div>{% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="small-muted">No specific nearby food recommendations for this stop.</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
   </div>
 
   {% if show_debug %}
@@ -217,43 +218,86 @@
   {% endif %}
 
   <p style="margin-top:1rem"><a href="{{ url_for('index') }}">&larr; Make another plan</a></p>
-
 {% endblock %}
 
 {% block scripts %}
-<script>
-  (function(){
-    const svg = document.getElementById('treasureSvg');
-    const mapGroup = document.getElementById('mapGroup');
-    let scale = 1;
-    const minScale = 0.6;
-    const maxScale = 2.0;
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"></script>
+  <script>
+    (function(){
+      const coords = {{ coords_list|tojson }};
+      const visitNodes = {{ visit_nodes|tojson }};
+      function colorForIndex(i){ return ['#ef4444','#f59e0b','#10b981','#3b82f6'][i % 4]; }
 
-    document.getElementById('zoomIn').addEventListener('click', () => {
-      scale = Math.min(maxScale, +(scale + 0.15).toFixed(2));
-      mapGroup.setAttribute('transform', 'scale(' + scale + ')');
-    });
-    document.getElementById('zoomOut').addEventListener('click', () => {
-      scale = Math.max(minScale, +(scale - 0.15).toFixed(2));
-      mapGroup.setAttribute('transform', 'scale(' + scale + ')');
-    });
+      if (coords && coords.length >= 2) {
+        const map = L.map('leafletMap', { zoomControl: true, preferCanvas: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
 
-    // clicking a node opens directions using the maps_link + waypoint if lat/lon present
-    const nodes = document.querySelectorAll('.svg-node');
-    nodes.forEach(n => {
-      n.addEventListener('click', () => {
-        const lat = n.getAttribute('data-lat');
-        const lon = n.getAttribute('data-lon');
-        const base = "{{ maps_link or '' }}";
-        if (lat && lon && base) {
-          // open maps_link with waypoint lat,lon appended
-          window.open(base + '&waypoints=' + lat + ',' + lon, '_blank');
-        } else {
-          const search = "{{ maps_search_link or '' }}";
-          if (search) window.open(search, '_blank');
-        }
-      });
-    });
-  })();
-</script>
+        const waypoints = coords.map(c => L.latLng(c[0], c[1]));
+        const markers = [];
+        visitNodes.forEach((n, i) => {
+          if (n.latitude == null || n.longitude == null) return;
+          const lat = parseFloat(n.latitude), lon = parseFloat(n.longitude);
+          const color = colorForIndex(i);
+          const html = `<div style="background:${color};width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;">${n.order}</div>`;
+          const icon = L.divIcon({ html, className: 'custom-div-icon', iconSize: [36,36], iconAnchor: [18,18] });
+          const marker = L.marker([lat, lon], { icon }).addTo(map);
+          let popupHtml = `<strong>${n.location_name}</strong><br/><small>${n.suggested_time} • ${n.estimated_duration}</small><br/>`;
+          if (n.nearby_food_recommendations && n.nearby_food_recommendations.length){
+            popupHtml += '<hr style="margin:6px 0"/><strong>Nearby:</strong><br/>';
+            n.nearby_food_recommendations.slice(0,3).forEach(f => {
+              popupHtml += `<div style="margin-top:4px;"><strong>${f.name}</strong>${f.rating?(' — '+f.rating+'/5'):''}${f.price_level?(' ('+f.price_level+')'):''}<div style="color:#6b7280;font-size:.9rem;">${f.reason||''}</div></div>`;
+            });
+          }
+          {% if maps_directions_link %}
+            popupHtml += `<div style="margin-top:8px;"><a href="{{ maps_directions_link }}&waypoints=${lat},${lon}" target="_blank">Open directions</a></div>`;
+          {% elif maps_link %}
+            popupHtml += `<div style="margin-top:8px;"><a href="{{ maps_link }}&waypoints=${lat},${lon}" target="_blank">Open directions</a></div>`;
+          {% elif maps_search_link %}
+            popupHtml += `<div style="margin-top:8px;"><a href="{{ maps_search_link }}" target="_blank">Open in Google Maps</a></div>`;
+          {% endif %}
+          marker.bindPopup(popupHtml);
+          markers.push(marker);
+        });
+
+        const routingControl = L.Routing.control({
+          waypoints,
+          router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+          lineOptions: { styles: [{color: '#2563eb', opacity: 0.9, weight: 5}] },
+          createMarker: () => null,
+          addWaypoints: false,
+          draggableWaypoints: false,
+          fitSelectedRoute: false,
+          showAlternatives: false
+        }).addTo(map);
+
+        const group = L.featureGroup(markers.length ? markers : waypoints.map(w => L.marker(w)));
+        map.fitBounds(group.getBounds().pad(0.12));
+
+        document.getElementById('fitBtn').addEventListener('click', () => map.fitBounds(group.getBounds().pad(0.12)));
+        document.getElementById('zoomIn').addEventListener('click', () => map.zoomIn());
+        document.getElementById('zoomOut').addEventListener('click', () => map.zoomOut());
+        document.getElementById('resetBtn').addEventListener('click', () => { map.setView(group.getBounds().getCenter(), Math.min(13, map.getBoundsZoom(group.getBounds()))); });
+
+        document.querySelectorAll('.milestone-card').forEach((card, i) => {
+          card.addEventListener('click', () => {
+            const n = visitNodes[i];
+            if (!n || n.latitude == null || n.longitude == null) return;
+            map.setView([n.latitude, n.longitude], Math.min(map.getMaxZoom(), 15), { animate: true });
+            const marker = markers.find(m => {
+              const ll = m.getLatLng();
+              return Math.abs(ll.lat - n.latitude) < 0.0001 && Math.abs(ll.lng - n.longitude) < 0.0001;
+            });
+            if (marker) marker.openPopup();
+          });
+        });
+
+      } else {
+        document.getElementById('fitBtn').style.display = 'none';
+        document.getElementById('zoomIn').style.display = 'none';
+        document.getElementById('zoomOut').style.display = 'none';
+        document.getElementById('resetBtn').style.display = 'none';
+      }
+    })();
+  </script>
 {% endblock %}

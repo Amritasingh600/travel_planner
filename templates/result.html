@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block head %}
+<style>
+  .svg-map { width:100%; max-width:940px; background: linear-gradient(180deg,#fffaf0,#fff6ea); border-radius:12px; padding:8px; box-shadow: inset 0 -6px 20px rgba(0,0,0,0.02); overflow:auto; }
+  .node-label { font-size:0.92rem; font-weight:700; fill:#0f172a; }
+  .node-sub { font-size:0.75rem; fill:#475569; }
+  .food-list { margin:0; padding-left:1.05rem; color:#0f172a; }
+  .card { padding:.75rem; background:white; border-radius:8px; border:1px solid #eef2f7; margin-bottom:.6rem; }
+  .rating { color:#b45309; font-weight:700; }
+  .map-controls { display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem; }
+  .map-controls button { background:#7c3aed; color:white; border:0; padding:.45rem .6rem; border-radius:6px; cursor:pointer; font-weight:600; }
+  .map-wrapper { overflow-x:auto; padding-bottom:8px; }
+  .node-card-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap:12px; margin-top:12px; }
+  .node-card { padding:12px; border-radius:10px; background:linear-gradient(180deg,#fff,#fbfafc); border:1px solid #eef2f7; }
+  .small-muted { font-size:0.9rem; color:#6b7280; }
+  .svg-node-rect { filter: drop-shadow(0 2px 6px rgba(18,38,63,0.04)); }
+</style>
+{% endblock %}
+
+{% block content %}
+  <h2>Plan for: <span class="place-name">{{ parsed.destination_name or destination }}</span></h2>
+  <p class="small"><strong>Preferences:</strong> {{ preferences or '—' }} &nbsp; | &nbsp; <strong>Days:</strong> {{ days or '—' }} &nbsp; | &nbsp; <strong>Budget:</strong> {{ budget or '—' }}</p>
+
+  <div class="section">
+    <h3>Recommended Visit Roadmap</h3>
+    <p class="treasure-note">Follow this "treasure map" order to make the most of your visit. Click nodes to open directions. Use zoom controls if the map looks dense.</p>
+
+    {% if visit_nodes %}
+      <div class="map-controls">
+        <div class="small-muted">Map view:</div>
+        <button id="zoomIn">Zoom +</button>
+        <button id="zoomOut">Zoom −</button>
+        <div style="flex:1"></div>
+        <div class="small-muted">Columns: {{ cols }}, Rows: {{ rows }}</div>
+      </div>
+
+      <div class="svg-map map-wrapper" id="mapWrap">
+        <svg id="treasureSvg" viewBox="0 0 {{ svg_width }} {{ svg_height }}" preserveAspectRatio="xMinYMin meet" width="{{ svg_width }}" height="{{ svg_height }}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"></path>
+            </marker>
+            <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.08"/>
+            </filter>
+          </defs>
+
+          <g id="mapGroup" transform="scale(1)">
+            {# Draw connecting arrows between nodes in grid order #}
+            {% for i in range(visit_nodes|length) %}
+              {% if i < visit_nodes|length - 1 %}
+                {% set a = visit_nodes[i] %}
+                {% set b = visit_nodes[i+1] %}
+                <line x1="{{ a.x }}" y1="{{ a.y }}" x2="{{ b.x - 24 if b.x > a.x else b.x + 24 }}" y2="{{ b.y }}" stroke="#7c3aed" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)" opacity="0.9"/>
+              {% endif %}
+            {% endfor %}
+
+            {% for node in visit_nodes %}
+              <g class="svg-node" data-order="{{ node.order }}" data-lat="{{ node.latitude }}" data-lon="{{ node.longitude }}" transform="translate({{ node.x }}, {{ node.y }})" style="cursor:pointer;">
+                <circle r="20" fill="#fff" stroke="#7c3aed" stroke-width="3" />
+                <text x="0" y="6" text-anchor="middle" font-size="13" fill="#7c3aed" font-weight="700">{{ node.order }}</text>
+
+                <g transform="translate(-110, 34)">
+                  <rect width="220" height="72" rx="8" class="svg-node-rect" fill="#fff" stroke="#e6e9f8"/>
+                  <text x="110" y="22" text-anchor="middle" class="node-label">{{ node.location_name }}</text>
+                  <text x="110" y="42" text-anchor="middle" class="node-sub">{{ node.suggested_time }} • {{ node.estimated_duration }}</text>
+                </g>
+              </g>
+            {% endfor %}
+          </g>
+        </svg>
+      </div>
+
+      <div class="node-card-grid">
+        {% for node in visit_nodes %}
+          <div class="node-card card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <strong>{{ node.order }}. {{ node.location_name }}</strong>
+                <div class="small-muted">{{ node.suggested_time }} • {{ node.estimated_duration }}</div>
+                <div style="margin-top:6px;" class="small-muted">{{ node.note }}</div>
+              </div>
+              <div style="text-align:right;">
+                {% if node.latitude and node.longitude %}
+                  <div class="small-muted">Lat: {{ node.latitude }}, Lon: {{ node.longitude }}</div>
+                {% endif %}
+                {% if maps_link %}
+                  <div style="margin-top:.35rem;"><a href="{{ maps_link }}&waypoints={{node.latitude}},{{node.longitude}}" target="_blank">Directions</a></div>
+                {% endif %}
+              </div>
+            </div>
+
+            <div style="margin-top:10px;">
+              <strong>Nearby food picks</strong>
+              {% if node.nearby_food_recommendations %}
+                <ul class="food-list">
+                  {% for f in node.nearby_food_recommendations %}
+                    <li>
+                      <strong>{{ f.name }}</strong>
+                      {% if f.rating %}<span class="rating"> — {{ f.rating }}/5</span>{% endif %}
+                      {% if f.price_level %} <span class="small-muted">({{ f.price_level }})</span>{% endif %}
+                      {% if f.distance_m %} <span class="small-muted"> · {{ f.distance_m }}m</span>{% endif %}
+                      <div class="small-muted">{{ f.reason }}</div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <div class="small-muted">No specific nearby food recommendations available for this stop.</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+    {% else %}
+      <p>No visit roadmap available.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h3>Daily Itinerary (summary)</h3>
+    {% if itinerary %}
+      {% for day in itinerary %}
+        <div class="card">
+          <strong>Day {{ day.day_number }} — {{ day.summary }}</strong>
+          <ul style="margin-top:.5rem;">
+            {% for a in day.activities %}
+              <li>{{ a }}</li>
+            {% endfor %}
+          </ul>
+          {% if day.approximate_cost %}<div class="small-muted">Approx cost: {{ day.approximate_cost }}</div>{% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No itinerary provided.</p>
+    {% endif %}
+  </div>
+
+  <div class="section">
+    <h3>Dining & Stays (top picks)</h3>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+      <div style="flex:1; min-width:280px;">
+        <h4>Popular dinner recommendations</h4>
+        {% if parsed.popular_dinner_recommendations %}
+          <ul class="food-list">
+          {% for d in parsed.popular_dinner_recommendations %}
+            <li><strong>{{ d.name }}</strong>
+              {% if d.rating %}<span class="rating"> — {{ d.rating }}/5</span>{% endif %}
+              {% if d.price_level %} <span class="small-muted">({{ d.price_level }})</span>{% endif %}
+              <div class="small-muted">{{ d.reason }}</div>
+            </li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <div class="small-muted">No dinner picks provided.</div>
+        {% endif %}
+      </div>
+
+      <div style="flex:1; min-width:280px;">
+        <h4>Popular stays</h4>
+        {% if parsed.popular_stays %}
+          <ul class="food-list">
+          {% for s in parsed.popular_stays %}
+            <li><strong>{{ s.name }}</strong>
+              {% if s.rating %}<span class="rating"> — {{ s.rating }}/5</span>{% endif %}
+              {% if s.price_level %} <span class="small-muted">({{ s.price_level }})</span>{% endif %}
+              <div class="small-muted">{{ s.reason }}</div>
+            </li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <div class="small-muted">No stays provided.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>Travel Instructions (step-by-step)</h3>
+    {% if travel_instructions %}
+      <ol>
+        {% for leg in travel_instructions %}
+          <li class="leg">
+            <strong>{{ leg.from or '' }} → {{ leg.to or '' }}</strong>
+            {% if leg.transport %} <div class="small-muted">Transport: {{ leg.transport }}</div> {% endif %}
+            {% if leg.approx_time %} <div class="small-muted">Approx time: {{ leg.approx_time }}</div> {% endif %}
+            {% if leg.notes %} <div class="small-muted">Notes: {{ leg.notes }}</div> {% endif %}
+          </li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p class="small-muted">No structured travel instructions provided.</p>
+    {% endif %}
+  </div>
+
+  <div class="section map-actions">
+    <h3>Map / Directions</h3>
+    {% if maps_search_link %}
+      <p class="small-muted">Open the place (shows name) or open turn-by-turn directions:</p>
+      <div class="action-links">
+        <a href="{{ maps_search_link }}" target="_blank" rel="noopener">Open place in Google Maps</a>
+        {% if maps_link %}<a href="{{ maps_link }}" target="_blank" rel="noopener">Open directions in Google Maps</a>{% endif %}
+      </div>
+      <div style="margin-top:1rem;">
+        <iframe src="{{ maps_iframe_src }}" allowfullscreen loading="lazy" style="width:100%; height:380px; border:0; border-radius:8px;"></iframe>
+      </div>
+    {% else %}
+      <p class="small-muted">No map link available.</p>
+    {% endif %}
+  </div>
+
+  {% if show_debug %}
+    <div style="margin-top:1rem;">
+      <div class="toggle-debug" onclick="document.getElementById('debug').style.display = (document.getElementById('debug').style.display === 'none' ? 'block' : 'none')">Show / hide debug JSON</div>
+      <pre id="debug" style="display:none; margin-top:.5rem;">{{ gemini_raw }}</pre>
+    </div>
+  {% endif %}
+
+  <p style="margin-top:1rem"><a href="{{ url_for('index') }}">&larr; Make another plan</a></p>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function(){
+    const svg = document.getElementById('treasureSvg');
+    const mapGroup = document.getElementById('mapGroup');
+    let scale = 1;
+    const minScale = 0.6;
+    const maxScale = 2.0;
+
+    document.getElementById('zoomIn').addEventListener('click', () => {
+      scale = Math.min(maxScale, +(scale + 0.15).toFixed(2));
+      mapGroup.setAttribute('transform', 'scale(' + scale + ')');
+    });
+    document.getElementById('zoomOut').addEventListener('click', () => {
+      scale = Math.max(minScale, +(scale - 0.15).toFixed(2));
+      mapGroup.setAttribute('transform', 'scale(' + scale + ')');
+    });
+
+    // clicking a node opens directions using the maps_link + waypoint if lat/lon present
+    const nodes = document.querySelectorAll('.svg-node');
+    nodes.forEach(n => {
+      n.addEventListener('click', () => {
+        const lat = n.getAttribute('data-lat');
+        const lon = n.getAttribute('data-lon');
+        const base = "{{ maps_link or '' }}";
+        if (lat && lon && base) {
+          // open maps_link with waypoint lat,lon appended
+          window.open(base + '&waypoints=' + lat + ',' + lon, '_blank');
+        } else {
+          const search = "{{ maps_search_link or '' }}";
+          if (search) window.open(search, '_blank');
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

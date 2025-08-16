@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Trip Planner</title>
+  <style>
+    body { font-family: Inter, Arial, Helvetica, sans-serif; margin: 0; padding: 1rem; background:#f3f4f6; color:#111827; }
+    .container { max-width: 1000px; margin: 0 auto; background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 6px 18px rgba(15,23,42,0.06); }
+    label { display:block; margin-top: 0.75rem; font-weight:600; color:#374151; }
+    input[type="text"], textarea, input[type="number"] { width:100%; padding:.5rem; margin-top:.25rem; border:1px solid #e5e7eb; border-radius:6px; background:white; color:#111827; }
+    button { margin-top:1rem; padding:.6rem 1rem; border:0; border-radius:8px; background:#0ea5a4; color:white; cursor:pointer; }
+    pre { background:#0f172a; color:#e6e6e6; padding:1rem; overflow:auto; border-radius:6px; }
+    .row { display:flex; gap:1rem; }
+    .col { flex:1; }
+    .note { background:#fef3c7; padding:.6rem; border-radius:6px; margin-top:.5rem; color:#92400e; }
+    h1, h2, h3 { color:#0f172a; }
+    .section { margin-top:1rem; padding: .75rem; border-radius:8px; background:#f8fafc; border:1px solid #eef2f7; }
+    .small { font-size:0.9rem; color:#6b7280; }
+    .card { padding:.75rem; background:white; border-radius:8px; border:1px solid #eef2f7; margin-bottom:.6rem; }
+    .flex { display:flex; gap:1rem; align-items:center; }
+    .muted { color:#6b7280; }
+    .map-actions a { margin-right: 1rem; color:#0ea5a4; text-decoration:none; font-weight:600; }
+    .place-name { font-weight:700; color:#0f172a; }
+    .treasure-note { font-style:italic; color:#645; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="container">
+    <h1>Trip Planner</h1>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul>
+        {% for msg in messages %}
+          <li style="color:#b91c1c; font-weight:600;">{{ msg }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

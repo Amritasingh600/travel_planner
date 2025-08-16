@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="post" action="{{ url_for('plan') }}">
+  <label for="destination">Destination (place you want to visit)</label>
+  <input id="destination" name="destination" type="text" placeholder="Eiffel Tower, Paris" required />
+
+  <label for="preferences">Preferences (what you'd like: museums, beaches, nightlife, family-friendly, food, etc.)</label>
+  <textarea id="preferences" name="preferences" rows="4" placeholder="I like museums, walking tours, local food"></textarea>
+
+  <div class="row">
+    <div class="col">
+      <label for="days">Days</label>
+      <input id="days" name="days" type="number" min="1" value="3" />
+    </div>
+    <div class="col">
+      <label for="budget">Budget (approx.)</label>
+      <input id="budget" name="budget" type="text" placeholder="e.g., $500 - $1000" />
+    </div>
+  </div>
+
+  <label for="origin">Starting location (optional; leave blank to use your browser location)</label>
+  <input id="origin" name="origin" type="text" placeholder="City or address" />
+
+  <div class="note">
+    Tip: If you leave "Starting location" empty, you can allow the browser to fill it with your current location (lat,long or address) — click "Use my location" below.
+  </div>
+
+  <button type="submit">Plan my trip</button>
+  <button type="button" id="useLocationBtn" style="background:#28a745;margin-left:8px;">Use my location</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('useLocationBtn').addEventListener('click', function(){
+  if (!navigator.geolocation) {
+    alert('Geolocation not supported by your browser.');
+    return;
+  }
+  this.disabled = true;
+  this.textContent = 'Finding location...';
+  navigator.geolocation.getCurrentPosition(function(pos){
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const input = document.getElementById('origin');
+    input.value = lat + "," + lon;
+    document.getElementById('useLocationBtn').textContent = 'Location set';
+  }, function(err){
+    alert('Could not get location: ' + err.message);
+    document.getElementById('useLocationBtn').disabled = false;
+    document.getElementById('useLocationBtn').textContent = 'Use my location';
+  });
+});
+</script>
+{% endblock %}

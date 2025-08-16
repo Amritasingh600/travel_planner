@@ -1,35 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="page-header">
+  <h1>AI Trip Planner</h1>
+  <p>Tell us your travel plans, and we'll generate a custom itinerary for you.</p>
+</div>
+
+<div class="form-card">
   <form action="{{ url_for('plan') }}" method="post">
-    <div class="row">
-      <div class="col">
+    <div class="form-grid">
+      <div>
         <label for="destination">Destination</label>
         <input id="destination" name="destination" type="text" placeholder="e.g. Mathura, India" required>
       </div>
-      <div class="col">
+      <div>
         <label for="origin">Origin (optional)</label>
-        <input id="origin" name="origin" type="text" placeholder="Your origin (city / address)">
+        <input id="origin" name="origin" type="text" placeholder="Your current city or address">
       </div>
-    </div>
-
-    <div class="row">
-      <div class="col">
+      <div>
         <label for="preferences">Preferences</label>
-        <input id="preferences" name="preferences" type="text" placeholder="e.g. local food, temples">
+        <input id="preferences" name="preferences" type="text" placeholder="e.g. local food, temples, museums">
       </div>
-      <div class="col">
-        <label for="days">Days</label>
-        <input id="days" name="days" type="number" min="1" max="14" placeholder="3">
+      <div>
+        <label for="days">Number of Days</label>
+        <input id="days" name="days" type="number" min="1" max="14" placeholder="e.g., 3">
       </div>
-    </div>
-
-    <div class="row">
-      <div class="col">
+      <div style="grid-column: 1 / -1;">
         <label for="budget">Budget</label>
-        <input id="budget" name="budget" type="text" placeholder="e.g. 500-1000">
+        <input id="budget" name="budget" type="text" placeholder="e.g. Moderate, $1000, etc.">
       </div>
     </div>
-
-    <button type="submit">Plan trip</button>
+    <button type="submit" class="btn-submit">Generate My Itinerary</button>
   </form>
+</div>
 {% endblock %}

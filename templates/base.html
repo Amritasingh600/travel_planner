@@ -3,64 +3,127 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Trip Planner</title>
+  <title>AI Trip Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --bg:#f3f4f6;
-      --card:#ffffff;
-      --muted:#6b7280;
-      --accent:#7c3aed;
-      --accent-2:#0ea5a4;
-      --shadow: 0 8px 30px rgba(15,23,42,0.08);
-      --radius:12px;
-      --max-width:1200px;
+    :root {
+      --bg-color: #f8f9fa;
+      --card-bg-color: #ffffff;
+      --primary-text-color: #212529;
+      --secondary-text-color: #495057;
+      --accent-color: #0052ff;
+      --accent-color-dark: #0048e0;
+      --border-color: #dee2e6;
+      --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --max-width: 1280px;
     }
-    html,body{height:100%}
-    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin: 0; padding: 1.25rem; background:var(--bg); color:#0f172a; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
-    .container { max-width: var(--max-width); margin: 0 auto; background: var(--card); padding: 1.25rem; border-radius: 10px; box-shadow: var(--shadow); }
-    h1{margin:0 0 .5rem 0; font-size:1.4rem}
-    label { display:block; margin-top: 0.75rem; font-weight:600; color:#374151; }
-    input[type="text"], textarea, input[type="number"] { width:100%; padding:.6rem; margin-top:.25rem; border:1px solid #e6e9ef; border-radius:8px; background:#fff; color:#0f172a; box-sizing:border-box; }
-    button { margin-top:1rem; padding:.6rem 1rem; border:0; border-radius:8px; background:var(--accent-2); color:white; cursor:pointer; }
-    pre { background:#0f172a; color:#e6e6e6; padding:1rem; overflow:auto; border-radius:8px; }
-    .row { display:flex; gap:1rem; flex-wrap:wrap; }
-    .col { flex:1; min-width:240px; }
-    .note { background:#fef3c7; padding:.6rem; border-radius:8px; margin-top:.5rem; color:#92400e; }
-    .small { font-size:0.9rem; color:var(--muted); }
-    .section { margin-top:1rem; padding: .9rem; border-radius:12px; background:linear-gradient(180deg,#ffffff,#fbfbfe); border:1px solid #eef2f7; }
-    .card { padding:.9rem; background:var(--card); border-radius:10px; border:1px solid #eef2f7; margin-bottom:.8rem; box-shadow: 0 6px 18px rgba(15,23,42,0.03);}
-    .muted { color:var(--muted); }
-    .place-name { font-weight:700; color:#0f172a; }
-    a { color:var(--accent-2); text-decoration:none; font-weight:600; }
-    .full-bleed {
-      position: relative;
-      left: 50%;
-      right: 50%;
-      margin-left: -50vw;
-      margin-right: -50vw;
-      width: 100vw;
-      padding: 1.25rem 0;
-      box-sizing: border-box;
-      background: linear-gradient(180deg,#fffaf0,#fff6ea);
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color);
+      color: var(--primary-text-color);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.6;
     }
-    .content-wrap { max-width: var(--max-width); margin: 0 auto; padding: 0 1.25rem; box-sizing: border-box; }
-    @media (max-width:900px){
-      .container{padding:.9rem}
-      .full-bleed{padding:.8rem 0}
+    .main-container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    .page-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .page-header h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin: 0;
+    }
+    .page-header p {
+      font-size: 1.1rem;
+      color: var(--secondary-text-color);
+      margin-top: 0.5rem;
+    }
+    .form-card {
+      background: var(--card-bg-color);
+      padding: 2rem;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    input[type="text"], input[type="number"], textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      color: var(--primary-text-color);
+      font-size: 1rem;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(0, 82, 255, 0.2);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    .btn-submit {
+      width: 100%;
+      margin-top: 1.5rem;
+      padding: 0.85rem 1.5rem;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: var(--accent-color);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color .15s ease;
+    }
+    .btn-submit:hover { background-color: var(--accent-color-dark); }
+    .flash-message {
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: var(--radius-sm);
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      font-weight: 600;
+    }
+    @media (max-width:768px) {
+      .main-container { padding: 1rem; }
+      .form-card { padding: 1.5rem; }
     }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
-  <div class="container">
-    <h1>Trip Planner</h1>
+  <div class="main-container">
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        <ul>
         {% for msg in messages %}
-          <li style="color:#b91c1c; font-weight:600;">{{ msg }}</li>
+          <div class="flash-message">{{ msg }}</div>
         {% endfor %}
-        </ul>
       {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}

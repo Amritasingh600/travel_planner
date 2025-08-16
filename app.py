@@ -515,7 +515,7 @@ Requirements:
             params["waypoints"] = waypoints_str
         maps_directions_link = "https://www.google.com/maps/dir/?" + urlencode(params)
 
-    # --- Enrich travel_instructions with map links (restore the previous "good" travel instructions behaviour)
+    # Enrich travel_instructions with map links
     enriched_travel = []
     # If the model provided detailed legs, try to enrich them
     for leg in travel_instructions:
@@ -578,7 +578,7 @@ Requirements:
 
     show_debug = (os.environ.get("FLASK_ENV", "").lower() == "development") and (request.args.get("debug") == "1")
 
-    # Render template with normalized data (travel instructions restored & enriched)
+    # Render template with normalized data
     return render_template(
         "result.html",
         destination=destination,

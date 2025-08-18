@@ -3,179 +3,223 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
   <style>
+    /* New modern styles */
     .result-header {
       text-align: left;
-      margin-bottom: 2rem;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 2.5rem;
+      padding: 2rem;
+      background: var(--glass-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-md);
     }
-    .result-header h1 { font-size: 2rem; font-weight: 700; }
+    
+    .result-header h1 { 
+      font-size: 2.25rem; 
+      font-weight: 800;
+      color: var(--accent-color);
+    }
+    
     .result-header .sub-details {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem 1.5rem;
+      gap: 1rem 2rem;
       color: var(--secondary-text-color);
-      margin-top: 0.5rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
     }
-    .result-header .sub-details span { font-weight: 600; color: var(--primary-text-color); }
+    
+    .result-header .sub-details span { 
+      font-weight: 600; 
+      color: var(--primary-text-color);
+    }
 
     .section-card {
       background: var(--card-bg-color);
-      padding: 1.5rem;
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-sm);
+      padding: 2rem;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
       border: 1px solid var(--border-color);
       margin-bottom: 2rem;
-    }
-    .section-card h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-top: 0;
-      margin-bottom: 1rem;
+      transition: transform 0.2s ease;
     }
 
-    .map-full { width:100%; height:520px; border-radius: var(--radius-md); overflow:hidden; }
-    .map-controls { display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; }
+    .map-full { 
+      width: 100%; 
+      height: 520px; 
+      border-radius: var(--radius-md); 
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+    }
+
+    .map-controls { 
+      display: flex; 
+      gap: 0.75rem; 
+      align-items: center; 
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
     .btn {
-      background: #fff;
+      background: var(--card-bg-color);
       color: var(--primary-text-color);
       border: 1px solid var(--border-color);
-      padding: 0.5rem 0.85rem;
+      padding: 0.625rem 1rem;
       border-radius: var(--radius-sm);
       cursor: pointer;
       font-weight: 600;
-      font-size: 0.85rem;
-      transition: all .15s ease;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
     }
-    .btn:hover { background: #f8f9fa; border-color: #ced4da; }
+
+    .btn:hover { 
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
     .btn-primary {
       background: var(--accent-color);
       color: #fff;
-      border-color: var(--accent-color);
+      border: none;
     }
-    .btn-primary:hover { background: var(--accent-color-dark); border-color: var(--accent-color-dark); }
 
     .milestone-cards-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 1rem;
     }
+
     .milestone-card {
-      background: #fff;
-      border-radius: var(--radius-sm);
-      padding: 1rem;
+      background: var(--card-bg-color);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
       border: 1px solid var(--border-color);
       display: flex;
       gap: 1rem;
       align-items: center;
       cursor: pointer;
-      transition: all .15s ease;
+      transition: all 0.2s ease;
     }
+
     .milestone-card:hover {
       transform: translateY(-3px);
-      box-shadow: var(--shadow-md);
-      border-color: var(--accent-color);
+      box-shadow: var(--shadow-lg);
     }
+
     .badge {
-      width: 40px; height: 40px;
+      width: 44px; 
+      height: 44px;
       border-radius: 50%;
       display: flex;
-      align-items: center; justify-content: center;
-      font-weight: 700; color: #fff; font-size: 1rem;
+      align-items: center; 
+      justify-content: center;
+      font-weight: 700; 
+      color: #fff; 
+      font-size: 1.1rem;
       flex-shrink: 0;
+      background: var(--accent-color);
+      box-shadow: var(--shadow-sm);
     }
-    .card-body { flex:1; }
-    .card-title { font-weight: 600; margin:0 0 0.25rem 0; color:var(--primary-text-color); }
-    .card-sub { margin:0; color:var(--secondary-text-color); font-size:0.9rem; }
+
+    .card-body { flex: 1; }
+    
+    .card-title { 
+      font-weight: 700; 
+      margin: 0 0 0.25rem 0; 
+      color: var(--primary-text-color);
+    }
+
+    .daily-itinerary-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .day-card {
+      background: var(--card-bg-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      border: 1px solid var(--border-color);
+      transition: transform 0.2s ease;
+    }
+
+    .day-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
 
     .details-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
+      gap: 2rem;
     }
-    .list { margin:0; padding-left: 1.2rem; }
-    .list li { margin-bottom: 0.75rem; }
 
-    .travel-instructions ol { list-style: none; padding-left: 0; }
+    .travel-instructions ol { 
+      list-style: none; 
+      padding-left: 0;
+      counter-reset: leg-counter;
+    }
+
     .travel-leg {
       position: relative;
-      padding: 1rem 1rem 1rem 2.5rem;
-      margin-bottom: 1rem;
+      padding: 1.25rem 1.25rem 1.25rem 3rem;
+      margin-bottom: 1.25rem;
+      background: var(--card-bg-color);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-md);
+      transition: transform 0.2s ease;
     }
-    .travel-leg:before {
-      content: counter(leg-counter);
-      counter-increment: leg-counter;
-      position: absolute;
-      left: -10px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--bg-color);
-      border: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      color: var(--secondary-text-color);
+
+    .travel-leg:hover {
+      transform: translateX(4px);
+      box-shadow: var(--shadow-md);
     }
-    .travel-header { display:flex; justify-content: space-between; align-items: center; }
-    .travel-header strong { font-size: 1.05rem; }
-    .travel-header a { font-size: 0.9rem; }
 
     .stops-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1rem;
-    }
-    .stop-card {
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-sm);
-      padding: 1rem;
-    }
-    .stop-card h4 {
-        margin-top: 0;
-    }
-    
-    .daily-itinerary-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1rem;
-    }
-    .day-card {
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        padding: 1rem;
-    }
-    .day-header {
-        padding-bottom: 0.75rem;
-        margin-bottom: 0.75rem;
-        border-bottom: 1px solid var(--border-color);
-    }
-    .day-number {
-        font-weight: 600;
-        font-size: 1.1rem;
-    }
-    .day-summary {
-        font-size: 0.95rem;
-        color: var(--secondary-text-color);
-        margin-left: 0.5rem;
-    }
-    .day-cost {
-        margin-top: 1rem;
-        font-size: 0.9rem;
-        color: var(--secondary-text-color);
-        text-align: right;
-        font-weight: 600;
+      gap: 1.25rem;
     }
 
-    .back-link { display: inline-block; margin-top: 2rem; }
+    .stop-card {
+      background: var(--card-bg-color);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      border: 1px solid var(--border-color);
+      transition: transform 0.2s ease;
+    }
+
+    .stop-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .back-link { 
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      padding: 0.75rem 1.25rem;
+      background: var(--card-bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--primary-text-color);
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    /* Note: removed the CSS that merely hid the routing control.
+       Instead the routing-control is not created and we draw the route polyline directly,
+       so there's no extra control box inserted on the map. */
 
     @media (max-width: 768px) {
       .details-grid { grid-template-columns: 1fr; }
+      .result-header { padding: 1.5rem; }
+      .section-card { padding: 1.5rem; }
+      .map-full { height: 400px; }
     }
   </style>
 {% endblock %}
@@ -216,9 +260,8 @@
     <div class="milestone-cards-container">
       {% for node in visit_nodes %}
         {% set idx = loop.index0 %}
-        {% set color = ['#d94848','#f59e0b','#10b981','#3b82f6'][idx % 4] %}
         <div class="milestone-card" data-index="{{ idx }}">
-          <div class="badge" style="background:{{ color }};">{{ node.order }}</div>
+          <div class="badge">{{ node.order }}</div>
           <div class="card-body">
             <div class="card-title">{{ node.location_name }}</div>
             <div class="card-sub">{{ node.suggested_time }} • {{ node.estimated_duration }}</div>
@@ -356,7 +399,7 @@
     </div>
   </div>
 
-  <a href="{{ url_for('index') }}" class="back-link">&larr; Plan Another Trip</a>
+  <a href="{{ url_for('index') }}" class="back-link">Plan Another Trip</a>
 {% endblock %}
 
 {% block scripts %}
@@ -368,8 +411,30 @@
       const visitNodes = {{ visit_nodes|tojson }};
       let markers = [];
       let map;
+      let routeLine = null;
+      const router = L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' });
 
-      function colorForIndex(i){ return ['#d94848','#f59e0b','#10b981','#3b82f6'][i % 4]; }
+      function buildWaypointsFromCoordsArray(arr) {
+        return arr.map(c => L.Routing.waypoint(L.latLng(c[0], c[1])));
+      }
+
+      function drawRouteFromCoordsArray(arr) {
+        if (!arr || arr.length < 2) return;
+        const waypoints = buildWaypointsFromCoordsArray(arr);
+        router.route(waypoints, (err, routes) => {
+          if (routeLine) {
+            try { map.removeLayer(routeLine); } catch(e){ /* ignore */ }
+            routeLine = null;
+          }
+          if (err || !routes || !routes.length) return;
+          // L.Routing.line expects a "route" object returned by router
+          routeLine = L.Routing.line(routes[0], {
+            styles: [{ color: '#0052ff', opacity: 0.85, weight: 5 }],
+            extendToWaypoints: false,
+            addWaypoints: false
+          }).addTo(map);
+        });
+      }
 
       if (coords && coords.length >= 2) {
         map = L.map('leafletMap', { zoomControl: true, preferCanvas: true });
@@ -380,7 +445,7 @@
         visitNodes.forEach((n, i) => {
           if (n.latitude == null || n.longitude == null) return;
           const lat = parseFloat(n.latitude), lon = parseFloat(n.longitude);
-          const color = colorForIndex(i);
+          const color = ['#d94848','#f59e0b','#10b981','#3b82f6'][i % 4];
           const html = `<div style="background:${color};width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1rem;transition:all .2s ease;">${n.order}</div>`;
           const icon = L.divIcon({ html, className: 'custom-map-marker', iconSize: [36,36], iconAnchor: [18,18] });
           const marker = L.marker([lat, lon], { icon, zIndexOffset: 100 }).addTo(map);
@@ -389,22 +454,24 @@
           markers.push(marker);
         });
 
-        L.Routing.control({
-          waypoints,
-          router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
-          lineOptions: { styles: [{color: '#0052ff', opacity: 0.8, weight: 5}] },
-          createMarker: () => null,
-          addWaypoints: false,
-          draggableWaypoints: false,
-          fitSelectedRoute: false,
-          showAlternatives: false,
-          routeWhileDragging: false
-        }).addTo(map);
+        // Draw the full route polyline initially (no control box)
+        drawRouteFromCoordsArray(coords);
 
         const group = L.featureGroup(markers.length ? markers : waypoints.map(w => L.marker(w)));
         map.fitBounds(group.getBounds().pad(0.12));
 
-        document.getElementById('fitBtn').addEventListener('click', () => map.fitBounds(group.getBounds().pad(0.12)));
+        document.getElementById('fitBtn').addEventListener('click', () => {
+          if (routeLine) {
+            // fit to route polyline bounds if available
+            try {
+              map.fitBounds(routeLine.getBounds().pad ? routeLine.getBounds().pad(0.12) : routeLine.getBounds().pad(0.12));
+            } catch (e) {
+              map.fitBounds(group.getBounds().pad(0.12));
+            }
+          } else {
+            map.fitBounds(group.getBounds().pad(0.12));
+          }
+        });
         document.getElementById('zoomIn').addEventListener('click', () => map.zoomIn());
         document.getElementById('zoomOut').addEventListener('click', () => map.zoomOut());
 
@@ -415,24 +482,30 @@
 
           card.addEventListener('mouseenter', () => {
             marker.setZIndexOffset(1000);
-            marker.getElement().style.transform = 'scale(1.25)';
+            const el = marker.getElement();
+            if (el) el.style.transform = 'scale(1.25)';
           });
           card.addEventListener('mouseleave', () => {
             marker.setZIndexOffset(100);
-            marker.getElement().style.transform = 'scale(1)';
+            const el = marker.getElement();
+            if (el) el.style.transform = 'scale(1)';
           });
+
           card.addEventListener('click', () => {
             const n = visitNodes[i];
             if (!n || n.latitude == null || n.longitude == null) return;
-            map.setView([n.latitude, n.longitude], Math.max(map.getZoom(), 15), { animate: true, duration: 0.5 });
+
+            // Draw route from origin (first coord) to the selected destination only
+            const origin = coords[0];
+            const dest = [parseFloat(n.latitude), parseFloat(n.longitude)];
+            drawRouteFromCoordsArray([origin, dest]);
+
+            // center map on the selected destination and open its popup
+            const targetZoom = Math.max(map.getZoom(), 13);
+            map.setView([n.latitude, n.longitude], targetZoom, { animate: true, duration: 0.5 });
             marker.openPopup();
           });
         });
-
-      } else {
-        document.getElementById('fitBtn').style.display = 'none';
-        document.getElementById('zoomIn').style.display = 'none';
-        document.getElementById('zoomOut').style.display = 'none';
       }
     })();
   </script>

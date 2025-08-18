@@ -9,116 +9,344 @@
   <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-color: #f8f9fa;
-      --card-bg-color: #ffffff;
-      --primary-text-color: #212529;
-      --secondary-text-color: #495057;
-      --accent-color: #0052ff;
-      --accent-color-dark: #0048e0;
-      --border-color: #dee2e6;
-      --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
-      --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-      --radius-sm: 6px;
-      --radius-md: 12px;
-      --max-width: 1280px;
+      /* Travel-friendly, soothing palette (sea/sand/sky) */
+      --bg-color: #f6fbff;               /* pale sky */
+      --card-bg-color: rgba(255, 255, 255, 0.95);
+      --primary-text-color: #09263a;     /* deep ocean */
+      --secondary-text-color: #4b6b7a;   /* muted slate */
+      --accent-color: #2da6d8;           /* ocean accent */
+      --accent-color-dark: #0f7aa3;      /* darker ocean */
+      --sand: #f7e9d2;
+      --border-color: rgba(75, 107, 122, 0.12);
+      --gradient-primary: linear-gradient(135deg, #2da6d8 0%, #0f7aa3 100%);
+      --gradient-surface: linear-gradient(135deg, #ffffff, #f2fbff);
+
+      /* shadows and glass */
+      --shadow-sm: 0 4px 18px rgba(16, 24, 32, 0.06);
+      --shadow-md: 0 8px 36px rgba(16, 24, 32, 0.10);
+      --shadow-lg: 0 16px 48px rgba(16, 24, 32, 0.12);
+      --glass-bg: rgba(255,255,255,0.8);
+      --glass-border: rgba(255,255,255,0.45);
+
+      /* radii & sizing */
+      --radius-sm: 10px;
+      --radius-md: 18px;
+      --radius-lg: 28px;
+      --max-width: 1180px;
+
+      /* motion */
+      --fly-duration: 16s;
     }
+
     *, *::before, *::after { box-sizing: border-box; }
+
     html, body { height: 100%; }
+
     body {
       font-family: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       margin: 0;
       padding: 0;
       background: var(--bg-color);
+      background-image:
+        radial-gradient(circle at 10% 10%, rgba(45,166,216,0.06) 0px, transparent 40%),
+        radial-gradient(circle at 90% 90%, rgba(15,122,163,0.04) 0px, transparent 40%);
+      background-attachment: fixed;
       color: var(--primary-text-color);
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
       line-height: 1.6;
+      overflow-x: hidden; /* prevent plane overflow scroll */
     }
+
     .main-container {
       max-width: var(--max-width);
       margin: 0 auto;
-      padding: 2rem;
+      padding: 2.25rem;
+      position: relative;
     }
+
+    /* Decorative floating chips for a playful travel feel */
+    .decor-chip {
+      position: absolute;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.85rem;
+      background: linear-gradient(90deg, rgba(255,255,255,0.85), rgba(255,255,255,0.9));
+      border-radius: 999px;
+      box-shadow: var(--shadow-sm);
+      font-size: 0.85rem;
+      color: var(--accent-color-dark);
+      border: 1px solid rgba(15,122,163,0.06);
+      transform: translateZ(0);
+      pointer-events: none;
+      opacity: 0.95;
+      backdrop-filter: blur(6px);
+    }
+
+    .chip-1 { top: 28px; left: 18px; }
+    .chip-2 { top: 120px; right: 34px; }
+    .chip-3 { bottom: 28px; left: 22px; }
+
+    /* subtle pulsing on chips */
+    @keyframes chipFloat {
+      0% { transform: translateY(0) translateZ(0); }
+      50% { transform: translateY(-6px) translateZ(0); }
+      100% { transform: translateY(0) translateZ(0); }
+    }
+    .decor-chip { animation: chipFloat 6s ease-in-out infinite; }
+
     .page-header {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.6rem;
+      padding: 1.6rem 0;
+      position: relative;
+      z-index: 3;
     }
+
     .page-header h1 {
-      font-size: 2.25rem;
-      font-weight: 700;
-      letter-spacing: -1px;
+      font-size: 2.45rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
       margin: 0;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.02;
+      transition: transform 0.25s ease;
+      display: inline-block;
     }
+
+    /* tiny underline animation */
+    .page-header h1::after {
+      content: "";
+      display: block;
+      height: 6px;
+      width: 64%;
+      margin: 10px auto 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(45,166,216,0.18), rgba(15,122,163,0.18));
+      transform-origin: left center;
+      transition: width 0.35s ease;
+    }
+    .page-header h1:hover { transform: translateY(-3px); }
+    .page-header h1:hover::after { width: 84%; }
+
     .page-header p {
-      font-size: 1.1rem;
+      font-size: 1.02rem;
       color: var(--secondary-text-color);
-      margin-top: 0.5rem;
+      margin-top: 0.65rem;
+      max-width: 860px;
+      margin-left: auto;
+      margin-right: auto;
     }
+
     .form-card {
       background: var(--card-bg-color);
       padding: 2rem;
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow-md);
       border: 1px solid var(--border-color);
+      transition: transform 0.25s cubic-bezier(.2,.9,.2,1), box-shadow 0.25s ease;
+      position: relative;
+      overflow: hidden;
     }
+
+    /* soft hover lift and gentle tilt */
+    .form-card:hover {
+      transform: translateY(-6px) scale(1.003);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* decorative wave on card edge */
+    .form-card::before {
+      content: "";
+      position: absolute;
+      right: -20%;
+      top: -12%;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle at 40% 30%, rgba(45,166,216,0.06), transparent 30%);
+      border-radius: 50%;
+      transform: rotate(20deg);
+      pointer-events: none;
+    }
+
     label {
       display: block;
       margin-bottom: 0.5rem;
-      font-weight: 600;
-      font-size: 0.9rem;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--secondary-text-color);
     }
+
     input[type="text"], input[type="number"], textarea {
       width: 100%;
-      padding: 0.75rem 1rem;
+      padding: 0.9rem 1rem;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-sm);
-      background: #fff;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,250,255,0.95));
       color: var(--primary-text-color);
       font-size: 1rem;
-      transition: border-color .15s ease, box-shadow .15s ease;
+      transition: box-shadow 0.18s ease, transform 0.12s ease, border-color 0.18s ease;
+      box-shadow: var(--shadow-sm);
     }
-    input:focus {
+
+    input[type="text"]::placeholder, textarea::placeholder {
+      color: rgba(9,38,58,0.28);
+      font-weight: 400;
+    }
+
+    input:focus, textarea:focus {
       outline: none;
       border-color: var(--accent-color);
-      box-shadow: 0 0 0 3px rgba(0, 82, 255, 0.2);
+      box-shadow: 0 10px 30px rgba(15,122,163,0.08), 0 0 0 4px rgba(45,166,216,0.08);
+      transform: translateY(-2px);
     }
+
     .form-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
+      gap: 1.6rem;
     }
+
     .btn-submit {
       width: 100%;
-      margin-top: 1.5rem;
-      padding: 0.85rem 1.5rem;
-      border: 0;
-      border-radius: var(--radius-sm);
-      background: var(--accent-color);
+      margin-top: 1.6rem;
+      padding: 1rem 1.5rem;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(90deg, rgba(45,166,216,0.98) 0%, rgba(15,122,163,0.98) 100%);
       color: white;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
-      transition: background-color .15s ease;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+      box-shadow: 0 8px 30px rgba(13,84,112,0.18);
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
     }
-    .btn-submit:hover { background-color: var(--accent-color-dark); }
+
+    /* gentle moving shimmer on button */
+    .btn-submit::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.06) 100%);
+      mix-blend-mode: overlay;
+      opacity: 0.9;
+      transform: translateX(-30%);
+      transition: transform 0.6s cubic-bezier(.2,.9,.2,1);
+      pointer-events: none;
+    }
+    .btn-submit:hover { transform: translateY(-4px); box-shadow: 0 18px 48px rgba(13,84,112,0.18); }
+    .btn-submit:hover::before { transform: translateX(10%); }
+
     .flash-message {
-      padding: 1rem;
-      margin-bottom: 1rem;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
       border-radius: var(--radius-sm);
-      background-color: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
+      background: linear-gradient(90deg, rgba(253,237,237,0.9), rgba(255,250,250,0.9));
+      color: #b02a37;
+      border: 1px solid rgba(176,42,55,0.09);
       font-weight: 600;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: var(--shadow-sm);
     }
+
+    /* subtle loading shimmer (retained) */
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+
+    .loading {
+      animation: shimmer 2s infinite linear;
+      background: linear-gradient(to right, var(--bg-color) 4%, var(--card-bg-color) 25%, var(--bg-color) 36%);
+      background-size: 1000px 100%;
+    }
+
+    /* Decorative flying paper plane animation */
+    .paper-plane {
+      position: absolute;
+      top: 10%;
+      left: -12%;
+      width: 64px;
+      height: 64px;
+      opacity: 0.95;
+      z-index: 2;
+      pointer-events: none;
+      transform-origin: center;
+      animation: flyAcross var(--fly-duration) linear infinite;
+      filter: drop-shadow(0 8px 20px rgba(9,38,58,0.06));
+    }
+    @keyframes flyAcross {
+      0%   { transform: translate3d(-120%, 0, 0) rotate(-10deg) scale(0.9); opacity: 0; }
+      6%   { opacity: 1; }
+      50%  { transform: translate3d(120vw, -14vh, 0) rotate(8deg) scale(1.02); opacity: 1; }
+      94%  { opacity: 0.6; }
+      100% { transform: translate3d(220vw, -26vh, 0) rotate(18deg) scale(0.9); opacity: 0; }
+    }
+
+    /* page responsive tweaks */
     @media (max-width:768px) {
       .main-container { padding: 1rem; }
-      .form-card { padding: 1.5rem; }
+      .form-card { padding: 1.5rem; border-radius: 14px; }
+      .page-header h1 { font-size: 1.7rem; }
+      .decor-chip { display: none; } /* hide decorative chips on small screens */
+      .paper-plane { display: none; } /* hide plane on small screens */
+    }
+
+    /* custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, var(--accent-color) 0%, var(--accent-color-dark) 100%);
+      border-radius: 999px;
+      opacity: 0.9;
+    }
+
+    /* Respect reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .decor-chip, .btn-submit::before, .page-header h1:hover, .form-card:hover, .paper-plane, .btn-submit, .chip-1, .chip-2, .chip-3 {
+        animation: none !important;
+        transition: none !important;
+      }
     }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
   <div class="main-container">
+    <!-- Decorative floating chips (purely visual, pointer-events none) -->
+    <div class="decor-chip chip-1" aria-hidden="true">🌊 Explore</div>
+    <div class="decor-chip chip-2" aria-hidden="true">☀️ Relax</div>
+    <div class="decor-chip chip-3" aria-hidden="true">🧭 Discover</div>
+
+    <!-- Decorative paper plane SVG that flies across the header area -->
+    <svg class="paper-plane" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <g fill="none" stroke="none" stroke-width="0" fill-rule="evenodd">
+        <g transform="translate(-2.000000, -2.000000)">
+          <g transform="translate(2.000000, 2.000000)">
+            <path d="M2.5 31L61 5 36 60 24 36 2.5 31z" fill="url(#g1)" opacity="0.98"></path>
+            <path d="M36 60L61 5 32 36" fill="rgba(255,255,255,0.08)"></path>
+            <defs>
+              <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+                <stop offset="100%" stop-color="#2da6d8" stop-opacity="0.95"/>
+              </linearGradient>
+            </defs>
+          </g>
+        </g>
+      </g>
+    </svg>
+
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         {% for msg in messages %}
@@ -126,6 +354,7 @@
         {% endfor %}
       {% endif %}
     {% endwith %}
+
     {% block content %}{% endblock %}
   </div>
   {% block scripts %}{% endblock %}

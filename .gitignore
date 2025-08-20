@@ -28,3 +28,4 @@ Thumbs.db
 # Flask
 instance/
 *.egg-info/
+.vercel

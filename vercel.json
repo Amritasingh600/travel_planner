@@ -3,18 +3,25 @@
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "runtime": "python3.9",
+        "maxLambdaSize": "15mb"
+      }
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "api/index.py"
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
     },
     {
-        "$schema": "https://gemini.vercel.sh/vercel.json",
-        "source": "/feedback/((?!general).*)",
-        "destination": "/api/feedback/general"
+      "src": "/(.*)",
+      "dest": "api/index.py"
     }
-  ]
+  ],
+  "env": {
+    "PYTHONPATH": ".",
+    "FLASK_ENV": "production"
+  }
 }

@@ -10,11 +10,11 @@
     {
       "src": "/(.*)",
       "dest": "api/index.py"
+    },
+    {
+        "$schema": "https://gemini.vercel.sh/vercel.json",
+        "source": "/feedback/((?!general).*)",
+        "destination": "/api/feedback/general"
     }
-  ],
-  "env":{
-      "$schema": "https://openapi.vercel.sh/vercel.json",
-      "source": "/feedback/((?!general).*)",
-      "destination": "/api/feedback/general"
-  }
+  ]
 }

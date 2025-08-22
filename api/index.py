@@ -1,7 +1,13 @@
 from flask import Flask, render_template, request, jsonify
 import os
+import sys
 import google.generativeai as genai
 from dotenv import load_dotenv
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -10,35 +16,57 @@ app.static_folder = 'static'
 app.template_folder = '../templates'
 
 try:
-    api_key = os.getenv('GOOGLE_API_KEY')
+    # Try both environment variable names
+    api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
     if not api_key:
-        raise ValueError("GOOGLE_API_KEY environment variable is not set")
+        raise ValueError("Neither GEMINI_API_KEY nor GOOGLE_API_KEY environment variable is set")
+    
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel('gemini-pro')
+    logger.info("Gemini API initialized successfully")
 except Exception as e:
-    print(f"Error initializing Gemini: {str(e)}")
-    # Still initialize the model variable to avoid NameError
+    logger.error(f"Error initializing Gemini: {str(e)}")
     model = None
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f"Error rendering template: {str(e)}")
+        return jsonify({"error": "Error loading page"}), 500
 
 @app.route('/generate_itinerary', methods=['POST'])
 def generate_itinerary():
     try:
         if not model:
-            return jsonify({"error": "Gemini API not properly initialized"}), 500
+            logger.error("Gemini model not initialized")
+            return jsonify({"error": "AI service not available"}), 503
             
         data = request.json
-        if not all(key in data for key in ['days', 'destination', 'budget', 'travelers']):
-            return jsonify({"error": "Missing required fields"}), 400
+        if not data:
+            logger.error("No JSON data received")
+            return jsonify({"error": "No data provided"}), 400
+
+        required_fields = ['days', 'destination', 'budget', 'travelers']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            logger.error(f"Missing required fields: {missing_fields}")
+            return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
 
         prompt = f"Create a detailed {data['days']}-day travel itinerary for {data['destination']} with a budget of {data['budget']} for {data['travelers']} travelers. Include specific activities, restaurants, and accommodations."
         
+        logger.info(f"Generating itinerary for destination: {data['destination']}")
         response = model.generate_content(prompt).text
+        
+        if not response:
+            logger.error("Empty response from Gemini API")
+            return jsonify({"error": "Could not generate itinerary"}), 500
+            
         return jsonify({"response": response})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error generating itinerary: {str(e)}")
+        return jsonify({"error": "An error occurred while generating the itinerary"}), 500
 
 application = app
